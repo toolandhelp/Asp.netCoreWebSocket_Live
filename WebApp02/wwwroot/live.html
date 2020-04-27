@@ -1,0 +1,60 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+</head>
+<body>
+
+    <div style="margin-bottom:5px;">
+        room no: <input type="text" id="txtRoomNo" value="8888" /> <button id="btnJoin" onclick="join()">进入房间</button>
+        nick name: <input type="text" id="txtNickName" value="用户" />
+    </div>
+
+    <img id="receiver" style="width:600px;height:300px" />
+    <!--<video  style="width:600px;height:300px" src="blob:http://localhost:5000/53f7f0c8-542c-4cb0-8594-a512a3f496b8"></video>-->
+</body>
+</html>
+<script type="text/javascript" charset="utf-8">
+
+    //创建一个socket实例
+    debugger
+    var receiver_socket = new WebSocket("ws://" + document.domain + ":5000/ws");
+
+    alert("ws://" + document.domain + ":5000/ws")
+
+    var image = document.getElementById('receiver');
+    debugger
+    // 监听消息
+    //if (!receiver_socket || receiver_socket.readyState !== WebSocket.OPEN) {
+    //    alert("socket not connected");
+    //}
+
+    receiver_socket.onmessage = function (data) {
+        console.log(data.data);
+        debugger;
+        image.src = data.data;
+
+    }
+    receiver_socket.onclose = function () {
+        // 关闭 websocket
+        console.log("连接已关闭...");
+        //alert("连接已关闭...");
+    };
+
+     function join() {
+        debugger
+        var roomNo = document.getElementById('txtRoomNo').value;
+        var nick = document.getElementById('txtNickName').value;
+        if (roomNo) {
+            var msg = {
+                action: 'join',
+                msg: roomNo,
+                nick: nick
+            };
+
+            receiver_socket.send(JSON.stringify(msg));
+        }
+    }
+
+</script>

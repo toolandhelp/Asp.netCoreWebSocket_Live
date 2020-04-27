@@ -1,0 +1,239 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+    <style>
+        body {
+            font-family: Arial;
+            margin: 4vh auto;
+            width: 90vw;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        #controls {
+            text-align: center;
+        }
+
+        .btn {
+            margin: 10px 5px;
+            padding: 15px;
+            background-color: #2bcbba;
+            border: none;
+            color: white;
+            font-weight: bold;
+            border-radius: 6px;
+            outline: none;
+            font-size: 1.2em;
+            width: 120px;
+            height: 50px;
+        }
+
+            .btn:hover {
+                background-color: #26de81;
+                cursor: hand;
+            }
+
+            .btn:disabled {
+                background-color: #2bcbba80;
+            }
+
+        #stop {
+            background-color: #fc5c65;
+        }
+
+        #video {
+            margin-top: 10px;
+            margin-bottom: 20px;
+            border: 12px solid #a5adb0;
+            border-radius: 15px;
+            outline: none;
+            width: 100%;
+            height: 400px;
+            background-color: black;
+        }
+
+        h1 {
+            color: #2bcbba;
+            letter-spacing: -2.5px;
+            line-height: 30px;
+        }
+
+        /*.created {
+            color: lightgrey;
+            letter-spacing: -0.7px;
+            font-size: 1em;
+            margin-top: 40px;
+        }
+
+            .created > a {
+                color: #4b7bec;
+                text-decoration: none;
+            }*/
+    </style>
+</head>
+<body>
+    <video id="video" controls="controls" controlslist="nodownload" src=""></video>
+    <button class="btn" id="record" onclick="record()" style="display: inline;">录制</button>
+    <button style="display: none;" class="btn" id="stop" onclick="stop()">停止</button>
+    <!--<button class="btn" id="download" onclick="download()">下载</button>-->
+    <!--<div class="created"> </div>-->
+    <canvas id="output" style="display: none;"></canvas>
+
+    <img id="receiver" style="width:600px;height:300px" />
+</body>
+</html>
+
+<script>
+    const video = document.getElementById('video')
+   // const downloadBtn = document.getElementById('download')
+    const recordBtn = document.getElementById('record')
+    const stopBtn = document.getElementById('stop')
+    let recorder
+
+    //创建一个+实例
+    var socket = new WebSocket("ws://" + document.domain + ":5000/ws");
+    //返回一个用于在画布上绘图的环境。
+    var back = document.getElementById('output');
+
+      var image = document.getElementById('receiver');
+
+    var backcontext = back.getContext('2d');
+
+    //backcontext.fillStyle = '#FF0000';
+    //backcontext.fillRect(0, 0, 80, 100);
+
+    // var video = document.getElementsByTagName('video')[0];
+
+    var success = function (stream) {
+
+        //获取视屏流，转换为url
+
+        video.src = window.URL.createObjectURL(stream);
+
+    }
+
+
+    //打开socket
+
+    socket.onopen = function () {
+
+        draw();
+        // record();
+
+        console.log("open success")
+
+    }
+    socket.onmessage = function (evt) {
+        var received_msg = evt.data;
+          console.log(evt.data);
+        debugger;
+        image.src = evt.data;
+    };
+    socket.onclose = function () {
+        console.log("close----------");
+    }
+
+
+    async function record() {
+        debugger
+        let captureStream
+
+        try {
+            captureStream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                // audio: true,   not support
+                cursor: 'always'
+            })
+            debugger
+        } catch (e) {
+            alert("Could not get stream")
+            return
+        }
+
+      //  downloadBtn.disabled = true
+        recordBtn.style = 'display: none'
+        stopBtn.style = 'display: inline'
+
+        window.URL.revokeObjectURL(video.src)
+
+        video.autoplay = true
+        video.srcObject = captureStream
+
+        recorder = new MediaRecorder(captureStream)
+        recorder.start()
+
+        captureStream.getVideoTracks()[0].onended = () => {
+            recorder.stop()
+        }
+
+        recorder.addEventListener("dataavailable", event => {
+            let videoUrl = URL.createObjectURL(event.data, { type: 'video/ogg' })
+            debugger;
+
+            video.srcObject = null
+            video.src = videoUrl
+            video.autoplay = false
+
+           // downloadBtn.disabled = false
+            recordBtn.style = 'display: inline'
+            stopBtn.style = 'display: none'
+        })
+    }
+
+     var draw = function () {
+
+        // debugger
+        try {
+
+            backcontext.drawImage(video, 0, 0, back.width, back.height);
+
+        } catch (e) {
+
+            if (e.name == "NS_ERROR_NOT_AVAILABLE") {
+
+                return setTimeout(draw, 100);
+
+            } else {
+
+                throw e;
+
+            }
+
+        }
+
+        if (video.src) {
+
+            // Canvas的内容转化成PNG data URI并发送到服务器，0.5为和压缩系数
+
+            socket.send(back.toDataURL("image/jpeg", 0.5));
+
+        }
+
+        setTimeout(draw, 100);
+
+    }
+
+
+
+    function download() {
+        const url = video.src
+        const name = new Date().toISOString().slice(0, 19).replace('T', ' ').replace(" ", "_").replace(/:/g, "-")
+        const a = document.createElement('a')
+
+        a.style = 'display: none'
+        a.download = `${name}.ogg`
+        a.href = url
+
+        document.body.appendChild(a)
+
+        a.click()
+    }
+
+    function stop() {
+        let tracks = video.srcObject.getTracks()
+        tracks.forEach(track => track.stop())
+        recorder.stop()
+    }
+</script>
